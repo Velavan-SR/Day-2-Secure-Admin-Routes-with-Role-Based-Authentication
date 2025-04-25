@@ -11,9 +11,11 @@ router.post('/register', async (req, res) => {
   const { username, password } = req.body;
 
   // Issue: Password should be hashed before saving
+  const hashpass = await bcrypt.hash(password,10)
+
   const newUser = new User({
     username,
-    password, // Not hashed
+    password:hashpass, // Not hashed
   });
 
   try {
@@ -31,11 +33,17 @@ router.post('/login', async (req, res) => {
   const user = await User.findOne({ username });
 
   // Issue: No password comparison (should hash password and compare)
-  if (!user || user.password !== password) { // Incorrect password check
+  const comparePass = await bcrypt.compare(password,user.password)
+  if (!comparePass) { // Incorrect password check
     return res.status(401).json({ message: 'Invalid credentials' });
   }
 
   const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV == "production",
+    sameSite: true,
+  });
 
   res.json({ token });
 });
